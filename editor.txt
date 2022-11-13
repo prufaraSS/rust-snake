@@ -1,0 +1,11 @@
+Controls:
+Arrows, Mouse - Move cursor
+Enter, LMB - Set or unset wall under cursor
+ESC - save & return back to menu
+
+You can't place wall in position where snake spawns
+
+
+┌─────┐
+│RESET│
+└─────┘
