@@ -35,4 +35,4 @@ which means you can download custom maps from the internet!
 2. Some fonts don't support the most of unicode symbols, so a few elements look messy (_temporary fix: changed apple appearance from 'ó' to '¤'_)
 
 ## Credits
-Crossterm - Cross-platform Terminal Manipulation Library: https://github.com/crossterm-rs/crossterm#contributing
+Crossterm - Cross-platform Terminal Manipulation Library: https://github.com/crossterm-rs/crossterm
