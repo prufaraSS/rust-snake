@@ -33,3 +33,6 @@ which means you can download custom maps from the internet!
 ## Unsolvable issues
 1. Can't process application closing with window close button which causes changed terminal size and params stay even if you open default cmd.exe
 2. Some fonts don't support the most of unicode symbols, so a few elements look messy (_temporary fix: changed apple appearance from 'ó' to '¤'_)
+
+## Credits
+Crossterm - Cross-platform Terminal Manipulation Library: https://github.com/crossterm-rs/crossterm#contributing
