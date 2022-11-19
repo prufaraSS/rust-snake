@@ -3,14 +3,26 @@ pub mod error_handling {
     use std::fs::File;
     use crossterm::{
         execute, Result,
-        style::Print
+        style::Print,
+        style::Stylize,
+        event::{
+            read,
+            Event
+        }
     };
+    use crate::free_window;
 
     fn cry(about:&str) {
         execute!(
             stderr(),
-            Print(about)
+            Print(about.red()),
         ).handle();
+        loop { //wait for input before panic!!
+            if let Ok(res) = read() {
+                if let Event::Key(_) = res {break}
+            } else {break}
+        };
+        free_window(0,0);
     }
 
     pub trait ReadHandling {
@@ -76,7 +88,7 @@ pub mod graphics {
     use std::io::stdout;
     use crossterm::{
         queue,
-        cursor::*,
+        cursor::{MoveTo},
         style::{Print}
     };
     use crate::general::error_handling::TerminalHandling;
@@ -97,7 +109,14 @@ pub mod graphics {
 
 pub mod input {
     use crossterm::{
-        event::*
+        event::{
+            poll,
+            read,
+            Event,
+            MouseEventKind,
+            MouseButton,
+            KeyCode
+        }
     };
     
     use std::time::Duration;
@@ -197,6 +216,7 @@ pub mod input {
                     KeyCode::Down => Direction::Down,
                     _ => snake.direction.copy()
                 };
+                snake.last_input = dir.copy();
                 if dir.is_opposite_of(&snake.prev_move) == false { snake.direction = dir }
             },
             _ => ()

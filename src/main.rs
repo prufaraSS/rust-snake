@@ -86,7 +86,8 @@ pub struct Snake {
     body: VecDeque<Pos>,
     direction:Direction,
     alive:bool,
-    prev_move:Direction
+    prev_move:Direction,
+    last_input:Direction
 }
 
 trait SnakeFunctionality {
@@ -113,7 +114,8 @@ impl SnakeFunctionality for Snake {
             ]),
             direction:Direction::Right,
             alive:true,
-            prev_move:Direction::Right
+            prev_move:Direction::Right,
+            last_input:Direction::Right
         }
     }
     fn is_in_point(&self,x:u16,y:u16) -> bool {
@@ -253,6 +255,9 @@ const COLOR_BLUE :Color = Color::Blue;
 const COLOR_YELLOW :Color = Color::Yellow;
 const COLOR_RED :Color = Color::Red;
 const COLOR_GREEN :Color = Color::Green;
+//edit screen hint is the widest part and main menu buttons are the tallest part
+const SCREEN_MIN_SIZE_X:u16 = EDIT_HINT_OFFSET_X + EDIT_HINT_SIZE_X;
+const SCREEN_MIN_SIZE_Y:u16 = BUTTONS_POS.y+16;
 
 fn draw(cursor:&Cursor,color:Color) {
     queue!(
@@ -307,7 +312,7 @@ fn draw_map(map:&[[bool;GAME_FIELD_SIZE];GAME_FIELD_SIZE],offsetx:u16,offsety:u1
     }
 }
 
-fn reset_map (map: &mut [[bool;GAME_FIELD_SIZE];GAME_FIELD_SIZE]) {
+fn reset_map(map: &mut [[bool;GAME_FIELD_SIZE];GAME_FIELD_SIZE]) {
     for y in 0..(GAME_FIELD_SIZE) {
         if y == 0 || y == (GAME_FIELD_SIZE-1) {map[y] = [true;GAME_FIELD_SIZE];}
         else {
@@ -315,6 +320,28 @@ fn reset_map (map: &mut [[bool;GAME_FIELD_SIZE];GAME_FIELD_SIZE]) {
             map[y][(GAME_FIELD_SIZE-1)] = true;
         }
     }
+}
+
+pub fn free_window(w:u16,h:u16) {
+    disable_raw_mode().handle();
+    if w+h != 0 {
+        queue!(
+            stdout(),
+            SetSize(w,h)
+        ).handle();
+    }
+    execute!(
+        stdout(),
+        EnableLineWrap,
+        DisableMouseCapture,
+        LeaveAlternateScreen,
+        Show
+    ).handle();
+}
+
+fn max(first_num:u16,second_num:u16) -> u16 {
+    if first_num < second_num {second_num}
+    else {first_num}
 }
 
 fn main() {
@@ -325,7 +352,10 @@ fn main() {
         stdout(),
         DisableLineWrap,
         SetTitle("Snake"),
-        SetSize(100,50),
+        SetSize(
+            max(term_old_w,SCREEN_MIN_SIZE_X),
+            max(term_old_h,SCREEN_MIN_SIZE_Y)
+        ),
         EnterAlternateScreen,
         EnableMouseCapture,
         Hide
@@ -342,14 +372,16 @@ fn main() {
     let edit_screen = read_file(FILE_EDITOR); //field edit scene
     let map_string = fs::read_to_string("map.txt"); // saved map 
     
+    let title_colors_size = title_colors.lines().count();
+    let mut title_colors_iter:usize = 0;
     //converting pool of strings to pool of colors :pogchamp:
-    let mut title_colors = title_colors.lines().map( 
+    let title_colors = title_colors.lines().map( 
         |x|
         match Color::parse_ansi( &format!("2;{}",x) ) {
             Some(color) => color,
             None => COLOR_WHITE
         }
-    ).cycle().peekable();
+    ).collect::<Vec<Color>>();
 
     let mut tick = SystemTime::now();
 
@@ -366,8 +398,10 @@ fn main() {
         let mut x = 0;
         let mut file_map_lines = s.lines();
         while let Some(line) = file_map_lines.next() {
+            if y >= GAME_FIELD_SIZE {break;}
             let mut chars = line.chars();
             while let Some(ch) = chars.next() {
+                if x >= GAME_FIELD_SIZE {break;}
                 map[y][x] = if ch == '1' {true} else {false};
                 x += 1;
             }
@@ -392,11 +426,14 @@ fn main() {
             Screen::MainMenu => {
                 let menu_elapsed = tick.elapsed().unwrap().as_millis();
                 if menu_elapsed >= MENU_TICK as u128 {
-                    title_colors.next().unwrap();
+                    title_colors_iter += 1;
+                    if title_colors_iter >= title_colors_size {
+                        title_colors_iter = 0;
+                    }
                     tick = SystemTime::now();
                 }
-                //fixme?: get rid of dereferencing
-                queue!(stdout(),SetForegroundColor(*title_colors.peek().unwrap())).handle();
+                //got rid of derefencing, but at what cost?
+                queue!(stdout(),SetForegroundColor(title_colors[title_colors_iter])).handle();
                 draw_simple_ascii_picture(
                     &title,
                     GLOBAL_OFFSET_X,
@@ -558,9 +595,10 @@ fn main() {
                             y:snake.pos.y
                         }
                     );
-                    if snake.direction.is_opposite_of(&snake.prev_move) == true {
-                        snake.direction = snake.prev_move.copy()
-                    }
+                    //makes much easier to turn 180 degrees
+                    if snake.last_input.is_opposite_of(&snake.prev_move) == false {
+                        snake.direction = snake.last_input.copy()
+                    };
                     snake.pos.x = match snake.direction { //snake movement x
                         Direction::Right => {
                             if snake.pos.x < (GAME_FIELD_SIZE-1) as u16 {
@@ -591,7 +629,7 @@ fn main() {
                         },
                         _ => snake.pos.y
                     };
-                    let tail = snake.body.front().unwrap(); //crash opportunity: snake size is 0
+                    let tail = snake.body.front().unwrap();
                     queue!(
                         stdout(),
                         SetBackgroundColor(COLOR_GRAY),
@@ -820,15 +858,5 @@ fn main() {
         file.write(b"\n").handle_write();
     }
     file.flush().handle();
-    
-    //Freeing window
-    disable_raw_mode().handle();
-    execute!(
-        stdout(),
-        EnableLineWrap,
-        DisableMouseCapture,
-        LeaveAlternateScreen,
-        Show,
-        SetSize(term_old_w,term_old_h)
-    ).handle();
+    free_window(term_old_w,term_old_h);
 }
